@@ -68,7 +68,12 @@ fn invalid_resource(req: HttpRequest) -> impl Responder {
 
 fn main() -> std::io::Result<()> {
     let server_address = "127.0.0.1:8080";
-    println!("Listening at address {}", server_address);
+    println!("Listening at address {}
+
+To Test:
+curl -X POST http://localhost:8080/person/George
+curl -X GET http://localhost:8080/persons
+curl -X GET http://localhost:8080/person/name_by_id/1", server_address);
     let db_conn = web::Data::new(Mutex::new(AppState {
         db: db_access::DbConnection::new(),
     }));
