@@ -1,5 +1,9 @@
 mod db_access;
 
+// fork stuff
+use fork::{Fork, daemon};
+
+// actix stuff
 use actix_web::{web, web::Path, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use serde_derive::Deserialize;
 use std::sync::Mutex;
@@ -55,7 +59,7 @@ fn get_persons(state: web::Data<Mutex<AppState>>, query: web::Query<Filter>) -> 
 }
 
 fn insert_person(state: web::Data<Mutex<AppState>>, info: Path<(String,)>) -> impl Responder {
-    println!("In insert_person");
+//    println!("In insert_person");
     let name = &info.0;
     let db_conn = &mut state.lock().unwrap().db;
     format!("{}", db_conn.insert_person(name))
@@ -65,25 +69,35 @@ fn invalid_resource(req: HttpRequest) -> impl Responder {
     println!("Invalid URI: \"{}\"", req.uri());
     HttpResponse::NotFound()
 }
-
-fn main() -> std::io::Result<()> {
+fn go_daemon() -> std::io::Result<()> {
     let server_address = "127.0.0.1:8080";
-    println!("Listening at address {}", server_address);
     let db_conn = web::Data::new(Mutex::new(AppState {
         db: db_access::DbConnection::new(),
     }));
-    HttpServer::new(move || {
-        App::new()
-            .register_data(db_conn.clone())
-            .service(web::resource("/persons/ids").route(web::get().to(get_all_persons_ids)))
-            .service(
-                web::resource("/person/name_by_id/{id}")
-                    .route(web::get().to(get_person_name_by_id)),
-            )
-            .service(web::resource("/persons").route(web::get().to(get_persons)))
-            .service(web::resource("/person/{name}").route(web::post().to(insert_person)))
-            .default_service(web::route().to(invalid_resource))
-    })
-    .bind(server_address)?
-    .run()
+
+    println!("Listening at address {} ...", server_address);
+    if let Ok(Fork::Child) = daemon(true, false) {
+        // run rest server
+        HttpServer::new(move || {
+            App::new()
+                .register_data(db_conn.clone())
+                .service(web::resource("/persons/ids").route(web::get().to(get_all_persons_ids)))
+                .service(
+                    web::resource("/person/name_by_id/{id}")
+                        .route(web::get().to(get_person_name_by_id)),
+                )
+                .service(web::resource("/persons").route(web::get().to(get_persons)))
+                .service(web::resource("/person/{name}").route(web::post().to(insert_person)))
+                .default_service(web::route().to(invalid_resource))
+        })
+        .bind(server_address)?
+        .run()
+    } else { 
+        panic!("go_daemon failed.");
+    }
+
+}
+
+fn main() -> std::io::Result<()> {
+    go_daemon()
 }
