@@ -1,8 +1,12 @@
 mod db_access;
 
-use actix_web::{web, web::Path, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{web, web::Path, App, HttpRequest, HttpResponse, 
+        HttpServer, Responder};
 use serde_derive::Deserialize;
 use std::sync::Mutex;
+
+use std::fs::File;
+use daemonize::Daemonize;
 
 struct AppState {
     db: db_access::DbConnection,
@@ -66,7 +70,7 @@ fn invalid_resource(req: HttpRequest) -> impl Responder {
     HttpResponse::NotFound()
 }
 
-fn main() -> std::io::Result<()> {
+fn web_server() -> std::io::Result<()> {
     let server_address = "127.0.0.1:8080";
     println!("Listening at address {}
 
@@ -77,6 +81,7 @@ curl -X GET http://localhost:8080/person/name_by_id/1", server_address);
     let db_conn = web::Data::new(Mutex::new(AppState {
         db: db_access::DbConnection::new(),
     }));
+
     HttpServer::new(move || {
         App::new()
             .register_data(db_conn.clone())
@@ -91,4 +96,26 @@ curl -X GET http://localhost:8080/person/name_by_id/1", server_address);
     })
     .bind(server_address)?
     .run()
+}
+
+fn main() -> std::io::Result<()> {
+    let stdout = File::create("/home/chris/projects/rust/daemon/daemon.out").unwrap();
+    let stderr = File::create("/home/chris/projects/rust/daemon/daemon.err").unwrap();
+
+    let daemonize = Daemonize::new()
+        .pid_file("/home/chris/projects/rust/daemon/test.pid") // Every method except `new` and             `start`
+        .chown_pid_file(false)      // is optional, see `Daemonize` documentation
+        .working_directory("/home/chris/projects/rust/daemon") // for default behaviour.
+        .stdout(stdout)  // Redirect stdout to `/home/chris/projects/rust/daemon/daemon.out`.
+        .stderr(stderr)  // Redirect stderr to `/home/chris/projects/rust/daemon/daemon.err`.
+        .privileged_action(|| "Executed before drop privileges");
+
+    match daemonize.start() {
+        Ok(_) => {
+            println!("Success, daemonized");
+            web_server()?
+        },
+        Err(e) => eprintln!("Error, {}", e),
+    }
+    Ok(())
 }
