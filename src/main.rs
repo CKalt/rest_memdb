@@ -99,13 +99,13 @@ curl -X GET http://localhost:8080/person/name_by_id/1", server_address);
 }
 
 fn main() -> std::io::Result<()> {
-    let stdout = File::create("/home/chris/projects/rust/daemon/daemon.out").unwrap();
-    let stderr = File::create("/home/chris/projects/rust/daemon/daemon.err").unwrap();
+    let stdout = File::create("daemon.out").unwrap();
+    let stderr = File::create("daemon.err").unwrap();
 
     let daemonize = Daemonize::new()
-        .pid_file("/home/chris/projects/rust/daemon/test.pid") // Every method except `new` and             `start`
-        .chown_pid_file(false)      // is optional, see `Daemonize` documentation
-        .working_directory("/home/chris/projects/rust/daemon") // for default behaviour.
+        .pid_file("test.pid")  // Every method except `new` and             `start`
+        .chown_pid_file(false) // is optional, see `Daemonize` documentation
+        .working_directory("./") // for default behaviour.
         .stdout(stdout)  // Redirect stdout to `/home/chris/projects/rust/daemon/daemon.out`.
         .stderr(stderr)  // Redirect stderr to `/home/chris/projects/rust/daemon/daemon.err`.
         .privileged_action(|| "Executed before drop privileges");
